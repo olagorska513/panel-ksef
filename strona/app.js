@@ -153,7 +153,10 @@ document.querySelectorAll('.przycisk-wyloguj').forEach((p) =>
   })
 );
 
-$('przycisk-zmien-haslo').addEventListener('click', () => pokazKonto('formularz-hasla'));
+$('przycisk-zmien-haslo').addEventListener('click', () => {
+  ustawMenuProfilu(false);
+  pokazKonto('formularz-hasla');
+});
 $('przycisk-anuluj-haslo').addEventListener('click', () => pokazAplikacje());
 
 $('formularz-hasla').addEventListener('submit', async (e) => {
@@ -198,8 +201,9 @@ async function poZalogowaniu(uzytkownik) {
   }
 
   $('nazwa-uzytkownika').textContent = uzytkownik.email;
+  $('awatar').textContent = inicjaly(uzytkownik.email);
   $('link-uzytkownicy').hidden = !profil.admin;
-  if (!location.hash || ['#/logowanie', '#/rejestracja'].includes(location.hash)) location.hash = '#/pulpit';
+  if (!location.hash || ['#/logowanie', '#/rejestracja'].includes(location.hash)) location.hash = '#/start';
   await wczytajDane();
   pokazAplikacje();
 }
@@ -224,20 +228,104 @@ async function wczytajDane() {
   odswiezWidoki();
 }
 
-const TYTULY_ZAKLADEK = { pulpit: 'Pulpit', komunikaty: 'Komunikaty KSeF', uzytkownicy: 'Użytkownicy' };
+// Zakładki z własną treścią
+const TYTULY_ZAKLADEK = { start: 'Strona główna', komunikaty: 'Komunikaty KSeF', uzytkownicy: 'Użytkownicy' };
+
+// Pozostałe pozycje menu (moduły pełnej aplikacji) - wspólny ekran informacyjny
+const MODULY = {
+  statystyki: ['Dashboard', 'Statystyki'],
+  rozliczalnosc: ['Dashboard', 'Rozliczalność faktur zakupowych'],
+  zadania: [null, 'Zadania'],
+  'faktury-sprzedazowe': [null, 'Faktury sprzedażowe'],
+  'faktury-zakupowe': [null, 'Faktury zakupowe'],
+  ustawienia: ['Administracja', 'Ustawienia'],
+  slowniki: [null, 'Słowniki'],
+  harmonogramy: [null, 'Status harmonogramów'],
+};
 
 function pokazZakladke() {
   let zakladka = location.hash.replace('#/', '');
-  if (!TYTULY_ZAKLADEK[zakladka] || (zakladka === 'uzytkownicy' && !stan.profil?.admin)) zakladka = 'pulpit';
+  if (zakladka === 'pulpit') zakladka = 'start';
+  if ((!TYTULY_ZAKLADEK[zakladka] && !MODULY[zakladka]) || (zakladka === 'uzytkownicy' && !stan.profil?.admin)) zakladka = 'start';
+
   for (const nazwa of Object.keys(TYTULY_ZAKLADEK)) $('zakladka-' + nazwa).hidden = zakladka !== nazwa;
-  document.querySelectorAll('.zakladki a').forEach((a) => {
-    a.classList.toggle('aktywna', a.dataset.zakladka === zakladka);
-    if (a.dataset.zakladka === zakladka) a.setAttribute('aria-current', 'page');
-    else a.removeAttribute('aria-current');
+  const modul = MODULY[zakladka];
+  $('zakladka-modul').hidden = !modul;
+  if (modul) {
+    $('modul-okruszki').textContent = modul[0] ? `${modul[0]} › ${modul[1]}` : '';
+    $('modul-okruszki').hidden = !modul[0];
+    $('modul-tytul').textContent = modul[1];
+  }
+
+  document.querySelectorAll('.boczny .pozycja[data-zakladka]').forEach((a) => {
+    const aktywna = a.dataset.zakladka === zakladka;
+    a.classList.toggle('aktywna', aktywna);
+    if (aktywna) {
+      a.setAttribute('aria-current', 'page');
+      const grupa = a.closest('.grupa');
+      if (grupa) ustawGrupe(grupa, true);
+    } else {
+      a.removeAttribute('aria-current');
+    }
   });
-  document.title = TYTULY_ZAKLADEK[zakladka] + ' · Panel KSeF';
+  document.title = (TYTULY_ZAKLADEK[zakladka] || modul[1]) + ' · FAKTURA365';
+  document.body.classList.remove('menu-otwarte');
+  $('zaslona').hidden = true;
   window.scrollTo(0, 0);
 }
+
+// ---------- Menu boczne i profil ----------
+
+function ustawGrupe(grupa, otwarta) {
+  grupa.classList.toggle('otwarta', otwarta);
+  grupa.querySelector('.pozycja-grupy').setAttribute('aria-expanded', String(otwarta));
+}
+
+document.querySelectorAll('.pozycja-grupy').forEach((przycisk) =>
+  przycisk.addEventListener('click', () => {
+    const grupa = przycisk.closest('.grupa');
+    ustawGrupe(grupa, !grupa.classList.contains('otwarta'));
+  })
+);
+
+// Na komputerze przycisk zwija menu do samych ikon, na telefonie wysuwa je z boku
+const telefon = window.matchMedia('(max-width: 900px)');
+document.querySelectorAll('.przycisk-menu').forEach((przycisk) =>
+  przycisk.addEventListener('click', () => {
+    if (telefon.matches) {
+      const otwarte = document.body.classList.toggle('menu-otwarte');
+      $('zaslona').hidden = !otwarte;
+    } else {
+      document.body.classList.toggle('menu-zwiniete');
+    }
+  })
+);
+$('zaslona').addEventListener('click', () => {
+  document.body.classList.remove('menu-otwarte');
+  $('zaslona').hidden = true;
+});
+
+function inicjaly(email) {
+  const czesci = email.split('@')[0].split(/[._-]+/).filter(Boolean);
+  const litery = czesci.length > 1 ? czesci[0][0] + czesci[1][0] : email.slice(0, 2);
+  return litery.toUpperCase();
+}
+
+function ustawMenuProfilu(otwarte) {
+  $('profil-menu').hidden = !otwarte;
+  $('profil-przycisk').setAttribute('aria-expanded', String(otwarte));
+}
+
+$('profil-przycisk').addEventListener('click', (e) => {
+  e.stopPropagation();
+  ustawMenuProfilu($('profil-menu').hidden);
+});
+document.addEventListener('click', (e) => {
+  if (!$('profil-menu').hidden && !e.target.closest('.profil')) ustawMenuProfilu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') ustawMenuProfilu(false);
+});
 
 window.addEventListener('hashchange', () => {
   if (stan.profil?.zatwierdzony) {
@@ -252,6 +340,11 @@ window.addEventListener('hashchange', () => {
 function odswiezWidoki() {
   odswiezPulpit();
   odswiezListe();
+  const nowe = stan.dane.komunikaty.filter((k) => dniTemu(k.data) <= DNI_NOWY).length;
+  document.querySelectorAll('.licznik-nowych').forEach((el) => {
+    el.textContent = nowe;
+    el.hidden = !nowe;
+  });
 }
 
 function odswiezPulpit() {
@@ -260,7 +353,8 @@ function odswiezPulpit() {
   const z30dni = komunikaty.filter((k) => dniTemu(k.data) <= 30);
   const testowych30 = z30dni.filter((k) => k.testowy).length;
 
-  $('powitanie').textContent = new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór';
+  $('powitanie').textContent =
+    (new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór') + '! Oto podsumowanie komunikatów technicznych KSeF.';
   $('kafel-sprawdzenie').textContent = formatujDateCzas(ostatnieSprawdzenie);
   $('kafel-30dni').textContent = z30dni.length;
   $('kafel-30dni-testowe').textContent = testowych30 ? `w tym TEST i DEMO: ${testowych30}` : 'wszystkie dotyczą produkcji';
