@@ -26,6 +26,12 @@ function htmlNaTekst(html) {
     .trim();
 }
 
+// Użytkowników interesują tylko komunikaty dotyczące KSeF. Moduł Certyfikatów i Uprawnień
+// jest częścią KSeF 2.0, choć jego komunikaty nie zawierają słowa "KSeF".
+function czyDotyczyKsef(tytul, tresc) {
+  return /\bKSeF\b|System\p{L}* e-Faktur|Modu\p{L}* Certyfikat\p{L}* i Uprawnie\p{L}*/iu.test(`${tytul} ${tresc}`);
+}
+
 function czyTestowy(tytul, tresc) {
   return /środowisk\w* (testow|przedprodukcyjn|demo)|\bDemo\b|\bTEST\b/i.test(`${tytul} ${tresc}`);
 }
@@ -84,11 +90,19 @@ function polaczenieSupabase() {
 }
 
 const zapytanie = polaczenieSupabase();
-const komunikaty = await pobierzKomunikaty();
-if (!komunikaty.length) throw new Error('Strona nie zwróciła żadnych komunikatów.');
+const wszystkie = await pobierzKomunikaty();
+if (!wszystkie.length) throw new Error('Strona nie zwróciła żadnych komunikatów.');
+
+const komunikaty = wszystkie.filter((k) => czyDotyczyKsef(k.tytul, k.tresc));
+const pominiete = wszystkie.filter((k) => !czyDotyczyKsef(k.tytul, k.tresc));
 
 await zapytanie('POST', 'komunikaty?on_conflict=id', komunikaty, { Prefer: 'resolution=merge-duplicates,return=minimal' });
+// Usuń z bazy komunikaty niedotyczące KSeF, jeśli trafiły tam wcześniej
+if (pominiete.length) {
+  await zapytanie('DELETE', `komunikaty?id=in.(${pominiete.map((k) => k.id).join(',')})`, undefined, { Prefer: 'return=minimal' });
+}
 await zapytanie('PATCH', 'stan?id=eq.1', { ostatnie_sprawdzenie: new Date().toISOString() }, { Prefer: 'return=minimal' });
 
 const najnowszy = komunikaty.reduce((a, b) => (b.data > a.data ? b : a));
-console.log(`Zapisano ${komunikaty.length} komunikatów (najnowszy: ${najnowszy.data} ${najnowszy.tytul}).`);
+console.log(`Zapisano ${komunikaty.length} komunikatów o KSeF (najnowszy: ${najnowszy.data} ${najnowszy.tytul}).`);
+for (const k of pominiete) console.log(`Pominięto (nie dotyczy KSeF): ${k.data} ${k.tytul}`);

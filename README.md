@@ -12,6 +12,8 @@ dostępna po zalogowaniu.
   blokować konta w zakładce **Użytkownicy**.
 - **Komunikaty** pobiera trzy razy dziennie `.github/workflows/komunikaty.yml`
   (`narzedzia/pobierz-komunikaty.mjs`) i zapisuje je w tabeli `komunikaty`.
+  Zapisywane są tylko komunikaty dotyczące KSeF: zawierające w tytule lub treści „KSeF”,
+  „Krajowy System e-Faktur” albo „Moduł Certyfikatów i Uprawnień” (funkcja `czyDotyczyKsef`).
 - Dostępu do danych pilnują reguły Row Level Security w bazie (`supabase/schemat.sql`):
   komunikaty widzą tylko zalogowani użytkownicy z niezablokowanym kontem.
 
