@@ -1,9 +1,2 @@
-# Klucz danych - NIGDY nie wysyłać na GitHuba (na GitHubie jest zapisany jako sekret KLUCZ_DANYCH)
-.klucz-danych
-
-# Dane budowane automatycznie przez GitHub Actions
-strona/dane.enc.json
-
-.adres-strony
-.loginy.json
 node_modules/
+.env

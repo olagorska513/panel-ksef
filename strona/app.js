@@ -1,81 +1,22 @@
 'use strict';
 
-// Panel KSeF - strona statyczna (GitHub Pages).
-// Komunikaty są zaszyfrowane (dane.enc.json). Klucz do nich jest zapisany w uzytkownicy.json
-// osobno dla każdego konta, zaszyfrowany hasłem tego konta - bez poprawnego hasła nie da się
-// odczytać treści.
+// Panel KSeF - strona statyczna (GitHub Pages) z kontami i danymi w Supabase.
+// Dostęp do komunikatów chronią reguły w bazie (supabase/schemat.sql): widzą je zalogowani
+// użytkownicy, których konto nie zostało zablokowane przez administratora.
 
 const NA_STRONE = 20;
 const DNI_NOWY = 7;
-const KLUCZ_SESJI = 'panel-ksef-sesja';
+
+const sb = supabase.createClient(window.KONFIGURACJA.supabaseUrl, window.KONFIGURACJA.supabaseKlucz);
 
 const stan = {
-  login: null,
-  klucz: null,
+  uzytkownik: null,
+  profil: null,
   dane: { ostatnieSprawdzenie: null, komunikaty: [] },
   limit: NA_STRONE,
 };
 
 const $ = (id) => document.getElementById(id);
-
-// ---------- Szyfrowanie (Web Crypto) ----------
-
-const zBase64 = (tekst) => Uint8Array.from(atob(tekst), (c) => c.charCodeAt(0));
-const doBase64 = (bajty) => btoa(String.fromCharCode(...bajty));
-
-// Loginy są zapisane w uzytkownicy.json jako skrót SHA-256 (ta sama funkcja jest w narzedzia/szyfrowanie.mjs)
-async function identyfikatorLoginu(login) {
-  const skrot = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('panel-ksef:' + login.trim().toLowerCase()));
-  return Array.from(new Uint8Array(skrot), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function odpakujKlucz(wpis, haslo) {
-  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(haslo), 'PBKDF2', false, ['deriveKey']);
-  const kluczHasla = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: zBase64(wpis.sol), iterations: wpis.iteracje },
-    material,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-  const surowy = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: zBase64(wpis.iv) }, kluczHasla, zBase64(wpis.klucz));
-  return new Uint8Array(surowy);
-}
-
-async function odszyfrujDane(surowyKlucz, plik) {
-  const klucz = await crypto.subtle.importKey('raw', surowyKlucz, 'AES-GCM', false, ['decrypt']);
-  const tekst = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: zBase64(plik.iv) }, klucz, zBase64(plik.dane));
-  return JSON.parse(new TextDecoder().decode(tekst));
-}
-
-async function pobierzJson(adres) {
-  const odp = await fetch(`${adres}?t=${Date.now()}`, { cache: 'no-store' });
-  if (!odp.ok) throw new Error(`Nie udało się pobrać ${adres} (${odp.status}).`);
-  return odp.json();
-}
-
-// ---------- Sesja ----------
-
-function zapiszSesje() {
-  try {
-    sessionStorage.setItem(KLUCZ_SESJI, JSON.stringify({ login: stan.login, klucz: doBase64(stan.klucz) }));
-  } catch { /* bez sesji trzeba będzie zalogować się po odświeżeniu */ }
-}
-
-function wczytajSesje() {
-  try {
-    const s = JSON.parse(sessionStorage.getItem(KLUCZ_SESJI));
-    return s && s.login && s.klucz ? { login: s.login, klucz: zBase64(s.klucz) } : null;
-  } catch {
-    return null;
-  }
-}
-
-function usunSesje() {
-  try {
-    sessionStorage.removeItem(KLUCZ_SESJI);
-  } catch { /* nic */ }
-}
 
 // ---------- Pomocnicze ----------
 
@@ -106,83 +47,188 @@ function powiadom(tekst) {
   el.textContent = tekst;
   el.hidden = false;
   clearTimeout(czasPowiadomienia);
-  czasPowiadomienia = setTimeout(() => (el.hidden = true), 3500);
+  czasPowiadomienia = setTimeout(() => (el.hidden = true), 4000);
 }
 
-// ---------- Logowanie ----------
+// Komunikaty błędów Supabase po polsku
+function opisBledu(blad) {
+  const tekst = (blad && (blad.message || blad.error_description)) || String(blad);
+  if (/invalid login credentials/i.test(tekst)) return 'Niepoprawny e-mail lub hasło.';
+  if (/already registered|already exists/i.test(tekst)) return 'Konto z tym adresem e-mail już istnieje. Zaloguj się.';
+  if (/email not confirmed/i.test(tekst)) return 'Adres e-mail nie został jeszcze potwierdzony.';
+  if (/password should be|weak password|at least/i.test(tekst)) return 'Hasło jest za słabe. Użyj co najmniej 8 znaków, w tym liter i cyfr.';
+  if (/invalid.*email|unable to validate email/i.test(tekst)) return 'Niepoprawny adres e-mail.';
+  if (/rate limit|too many/i.test(tekst)) return 'Zbyt wiele prób. Spróbuj ponownie za kilka minut.';
+  if (/signups not allowed/i.test(tekst)) return 'Rejestracja nowych kont jest wyłączona.';
+  if (/failed to fetch|network/i.test(tekst)) return 'Brak połączenia z serwerem. Sprawdź internet.';
+  if (/same.*password|different from the old/i.test(tekst)) return 'Nowe hasło musi być inne niż obecne.';
+  return 'Wystąpił błąd: ' + tekst;
+}
 
-function pokazLogowanie() {
+function pokazBlad(formularz, tekst) {
+  const el = formularz.querySelector('.blad');
+  el.textContent = tekst;
+  el.hidden = !tekst;
+}
+
+async function zablokujNaCzas(przycisk, napis, dzialanie) {
+  const poprzedni = przycisk.textContent;
+  przycisk.disabled = true;
+  przycisk.textContent = napis;
+  try {
+    return await dzialanie();
+  } finally {
+    przycisk.disabled = false;
+    przycisk.textContent = poprzedni;
+  }
+}
+
+// ---------- Ekrany konta ----------
+
+const FORMULARZE_KONTA = ['formularz-logowania', 'formularz-rejestracji', 'formularz-hasla', 'zablokowane'];
+
+function pokazKonto(ktory) {
   $('widok-aplikacji').hidden = true;
-  $('widok-logowania').hidden = false;
-  $('logowanie-blad').hidden = true;
-  $('pole-login').focus();
+  $('widok-konta').hidden = false;
+  for (const id of FORMULARZE_KONTA) $(id).hidden = id !== ktory;
+  const formularz = $(ktory);
+  if (formularz.tagName === 'FORM') {
+    pokazBlad(formularz, '');
+    formularz.querySelector('input')?.focus();
+  }
+  document.title = 'Panel KSeF';
+}
+
+function pokazEkranNiezalogowanego() {
+  pokazKonto(location.hash === '#/rejestracja' ? 'formularz-rejestracji' : 'formularz-logowania');
 }
 
 $('formularz-logowania').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const login = $('pole-login').value.trim().toLowerCase();
-  const haslo = $('pole-haslo').value;
-  const blad = $('logowanie-blad');
-  const przycisk = $('przycisk-logowania');
-  blad.hidden = true;
-  przycisk.disabled = true;
-  przycisk.textContent = 'Logowanie…';
+  const f = e.currentTarget;
+  pokazBlad(f, '');
+  await zablokujNaCzas(f.querySelector('[type=submit]'), 'Logowanie…', async () => {
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: $('logowanie-email').value.trim(),
+      password: $('logowanie-haslo').value,
+    });
+    if (error) return pokazBlad(f, opisBledu(error));
+    $('logowanie-haslo').value = '';
+    await poZalogowaniu(data.user);
+  });
+});
 
-  try {
-    const uzytkownicy = await pobierzJson('uzytkownicy.json');
-    const id = await identyfikatorLoginu(login);
-    const wpis = Object.hasOwn(uzytkownicy, id) ? uzytkownicy[id] : null;
-    let klucz = null;
-    if (wpis) klucz = await odpakujKlucz(wpis, haslo).catch(() => null);
-    if (!klucz) throw new Error('Niepoprawny login lub hasło.');
+$('formularz-rejestracji').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  pokazBlad(f, '');
+  const email = $('rejestracja-email').value.trim();
+  const haslo = $('rejestracja-haslo').value;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return pokazBlad(f, 'Podaj poprawny adres e-mail.');
+  if (haslo.length < 8) return pokazBlad(f, 'Hasło musi mieć co najmniej 8 znaków.');
+  if (haslo !== $('rejestracja-haslo2').value) return pokazBlad(f, 'Hasła nie są takie same.');
 
-    stan.login = login;
-    stan.klucz = klucz;
-    zapiszSesje();
-    $('pole-haslo').value = '';
-    await uruchomAplikacje();
-  } catch (err) {
-    blad.textContent = err.message;
-    blad.hidden = false;
-  } finally {
-    przycisk.disabled = false;
-    przycisk.textContent = 'Zaloguj';
+  await zablokujNaCzas(f.querySelector('[type=submit]'), 'Zakładanie konta…', async () => {
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password: haslo,
+      options: { emailRedirectTo: location.origin + location.pathname },
+    });
+    if (error) return pokazBlad(f, opisBledu(error));
+    f.reset();
+    if (data.session) {
+      await poZalogowaniu(data.user);
+    } else {
+      // Gdy w Supabase włączone jest potwierdzanie adresu e-mail
+      location.hash = '#/logowanie';
+      pokazKonto('formularz-logowania');
+      powiadom('Konto założone. Potwierdź adres, klikając link w wiadomości e-mail, a potem zaloguj się.');
+    }
+  });
+});
+
+document.querySelectorAll('.przycisk-wyloguj').forEach((p) =>
+  p.addEventListener('click', async () => {
+    await sb.auth.signOut();
+  })
+);
+
+$('przycisk-zmien-haslo').addEventListener('click', () => pokazKonto('formularz-hasla'));
+$('przycisk-anuluj-haslo').addEventListener('click', () => pokazAplikacje());
+
+$('formularz-hasla').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const haslo = $('nowe-haslo').value;
+  if (haslo.length < 8) return pokazBlad(f, 'Hasło musi mieć co najmniej 8 znaków.');
+  if (haslo !== $('nowe-haslo2').value) return pokazBlad(f, 'Hasła nie są takie same.');
+  await zablokujNaCzas(f.querySelector('[type=submit]'), 'Zapisywanie…', async () => {
+    const { error } = await sb.auth.updateUser({ password: haslo });
+    if (error) return pokazBlad(f, opisBledu(error));
+    f.reset();
+    pokazAplikacje();
+    powiadom('Hasło zostało zmienione.');
+  });
+});
+
+sb.auth.onAuthStateChange((zdarzenie) => {
+  if (zdarzenie === 'SIGNED_OUT') {
+    stan.uzytkownik = null;
+    stan.profil = null;
+    stan.dane = { ostatnieSprawdzenie: null, komunikaty: [] };
+    location.hash = '#/logowanie';
+    pokazKonto('formularz-logowania');
   }
 });
 
-$('przycisk-wyloguj').addEventListener('click', () => {
-  usunSesje();
-  stan.login = null;
-  stan.klucz = null;
-  stan.dane = { ostatnieSprawdzenie: null, komunikaty: [] };
-  pokazLogowanie();
-});
+// ---------- Po zalogowaniu ----------
 
-// ---------- Aplikacja ----------
+async function poZalogowaniu(uzytkownik) {
+  stan.uzytkownik = uzytkownik;
+  const { data: profil, error } = await sb.from('profile').select('*').eq('id', uzytkownik.id).maybeSingle();
+  if (error) {
+    powiadom(opisBledu(error));
+    return pokazKonto('formularz-logowania');
+  }
+  stan.profil = profil;
 
-async function uruchomAplikacje() {
-  $('nazwa-uzytkownika').textContent = stan.login;
+  if (!profil?.zatwierdzony) {
+    $('zablokowane-email').textContent = uzytkownik.email;
+    return pokazKonto('zablokowane');
+  }
+
+  $('nazwa-uzytkownika').textContent = uzytkownik.email;
+  $('link-uzytkownicy').hidden = !profil.admin;
+  if (!location.hash || ['#/logowanie', '#/rejestracja'].includes(location.hash)) location.hash = '#/pulpit';
   await wczytajDane();
-  $('widok-logowania').hidden = true;
+  pokazAplikacje();
+}
+
+function pokazAplikacje() {
+  $('widok-konta').hidden = true;
   $('widok-aplikacji').hidden = false;
-  if (!location.hash) location.hash = '#/pulpit';
   pokazZakladke();
 }
 
 async function wczytajDane() {
-  try {
-    stan.dane = await odszyfrujDane(stan.klucz, await pobierzJson('dane.enc.json'));
-  } catch {
-    powiadom('Nie udało się wczytać komunikatów. Spróbuj odświeżyć stronę.');
-  }
+  const [komunikaty, stanSprawdzenia] = await Promise.all([
+    sb.from('komunikaty').select('id, data, tytul, adres, tresc, testowy, dla_klienta').order('data', { ascending: false }),
+    sb.from('stan').select('ostatnie_sprawdzenie').eq('id', 1).maybeSingle(),
+  ]);
+  if (komunikaty.error) powiadom('Nie udało się wczytać komunikatów: ' + opisBledu(komunikaty.error));
+  stan.dane = {
+    komunikaty: komunikaty.data || [],
+    ostatnieSprawdzenie: stanSprawdzenia.data?.ostatnie_sprawdzenie || null,
+  };
+  if (stan.profil?.admin) await wczytajUzytkownikow();
   odswiezWidoki();
 }
 
-const TYTULY_ZAKLADEK = { pulpit: 'Pulpit', komunikaty: 'Komunikaty KSeF' };
+const TYTULY_ZAKLADEK = { pulpit: 'Pulpit', komunikaty: 'Komunikaty KSeF', uzytkownicy: 'Użytkownicy' };
 
 function pokazZakladke() {
   let zakladka = location.hash.replace('#/', '');
-  if (!TYTULY_ZAKLADEK[zakladka]) zakladka = 'pulpit';
+  if (!TYTULY_ZAKLADEK[zakladka] || (zakladka === 'uzytkownicy' && !stan.profil?.admin)) zakladka = 'pulpit';
   for (const nazwa of Object.keys(TYTULY_ZAKLADEK)) $('zakladka-' + nazwa).hidden = zakladka !== nazwa;
   document.querySelectorAll('.zakladki a').forEach((a) => {
     a.classList.toggle('aktywna', a.dataset.zakladka === zakladka);
@@ -194,8 +240,14 @@ function pokazZakladke() {
 }
 
 window.addEventListener('hashchange', () => {
-  if (stan.login) pokazZakladke();
+  if (stan.profil?.zatwierdzony) {
+    if (!$('widok-aplikacji').hidden) pokazZakladke();
+  } else if (!stan.uzytkownik) {
+    pokazEkranNiezalogowanego();
+  }
 });
+
+// ---------- Pulpit i komunikaty ----------
 
 function odswiezWidoki() {
   odswiezPulpit();
@@ -207,7 +259,7 @@ function odswiezPulpit() {
   const produkcyjne = komunikaty.filter((k) => !k.testowy);
   const najnowszy = produkcyjne[0];
 
-  $('powitanie').textContent = `${new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór'}, ${stan.login}`;
+  $('powitanie').textContent = new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór';
   $('kafel-sprawdzenie').textContent = formatujDateCzas(ostatnieSprawdzenie);
   $('kafel-30dni').textContent = produkcyjne.filter((k) => dniTemu(k.data) <= 30).length;
   $('kafel-najnowszy').textContent = najnowszy ? formatujDate(najnowszy.data) : '—';
@@ -215,14 +267,14 @@ function odswiezPulpit() {
 
   const kontener = $('pulpit-najnowsze');
   kontener.replaceChildren(...produkcyjne.slice(0, 3).map(kartaKomunikatu));
-  if (!produkcyjne.length) kontener.replaceChildren(pustaLista('Brak komunikatów.'));
+  if (!produkcyjne.length) kontener.replaceChildren(pustaLista('Brak komunikatów. Pojawią się po pierwszym pobraniu przez GitHub.'));
 }
 
 function odswiezListe() {
   const fraza = $('filtr-szukaj').value.trim().toLowerCase();
   const testowe = $('filtr-testowe').checked;
   const pasujace = stan.dane.komunikaty.filter(
-    (k) => (testowe || !k.testowy) && (!fraza || `${k.tytul} ${k.tresc} ${k.dlaKlienta || ''}`.toLowerCase().includes(fraza))
+    (k) => (testowe || !k.testowy) && (!fraza || `${k.tytul} ${k.tresc} ${k.dla_klienta || ''}`.toLowerCase().includes(fraza))
   );
 
   $('komunikaty-sprawdzenie').textContent = formatujDateCzas(stan.dane.ostatnieSprawdzenie);
@@ -250,10 +302,10 @@ function kartaKomunikatu(k) {
   el.querySelector('.komunikat-zrodlo').href = k.adres;
 
   // Gdy jest gotowy tekst dla klienta, pokazujemy go, a oryginał chowamy pod "Pełna treść"
-  const tekstDoKopiowania = k.dlaKlienta || k.tresc || 'Brak treści.';
-  el.querySelector('.dla-klienta-etykieta').textContent = k.dlaKlienta ? 'Komunikat dla klienta' : 'Treść komunikatu';
+  const tekstDoKopiowania = k.dla_klienta || k.tresc || 'Brak treści.';
+  el.querySelector('.dla-klienta-etykieta').textContent = k.dla_klienta ? 'Komunikat dla klienta' : 'Treść komunikatu';
   el.querySelector('.dla-klienta-tekst').textContent = tekstDoKopiowania;
-  el.querySelector('.komunikat-szczegoly').hidden = !k.dlaKlienta;
+  el.querySelector('.komunikat-szczegoly').hidden = !k.dla_klienta;
   el.querySelector('.komunikat-tresc').textContent = k.tresc || '';
 
   el.querySelector('.przycisk-kopiuj').addEventListener('click', async () => {
@@ -281,26 +333,57 @@ $('przycisk-wiecej').addEventListener('click', () => {
   odswiezListe();
 });
 
+// ---------- Użytkownicy (administrator) ----------
+
+async function wczytajUzytkownikow() {
+  const { data, error } = await sb.from('profile').select('*').order('utworzono', { ascending: false });
+  if (error) return powiadom(opisBledu(error));
+
+  const wiersze = data.map((p) => {
+    const tr = document.createElement('tr');
+    const status = p.admin ? 'Administrator' : p.zatwierdzony ? 'Aktywny' : 'Zablokowany';
+    for (const tekst of [p.email, status, formatujDateCzas(p.utworzono)]) {
+      const td = document.createElement('td');
+      td.textContent = tekst;
+      tr.append(td);
+    }
+    if (!p.zatwierdzony) tr.classList.add('zablokowany');
+
+    const akcje = document.createElement('td');
+    if (p.id === stan.uzytkownik.id) {
+      akcje.textContent = '(Ty)';
+    } else if (!p.admin) {
+      const przycisk = document.createElement('button');
+      przycisk.className = p.zatwierdzony ? 'przycisk przycisk-cichy przycisk-niebezpieczny' : 'przycisk przycisk-cichy';
+      przycisk.textContent = p.zatwierdzony ? 'Zablokuj' : 'Odblokuj';
+      przycisk.addEventListener('click', async () => {
+        if (p.zatwierdzony && !confirm(`Zablokować dostęp dla ${p.email}?`)) return;
+        const { error } = await sb.from('profile').update({ zatwierdzony: !p.zatwierdzony }).eq('id', p.id);
+        if (error) return powiadom(opisBledu(error));
+        powiadom(p.zatwierdzony ? `Zablokowano ${p.email}.` : `Odblokowano ${p.email}.`);
+        wczytajUzytkownikow();
+      });
+      akcje.append(przycisk);
+    }
+    tr.append(akcje);
+    return tr;
+  });
+  $('lista-uzytkownikow').replaceChildren(...wiersze);
+}
+
 // Po powrocie do karty przeglądarki pobierz najnowsze dane
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && stan.klucz) wczytajDane();
+  if (!document.hidden && stan.profil?.zatwierdzony) wczytajDane();
 });
 
 // ---------- Start ----------
 
 (async () => {
-  const sesja = wczytajSesje();
-  if (sesja) {
-    try {
-      // Konto mogło zostać usunięte - wtedy trzeba zalogować się ponownie
-      const uzytkownicy = await pobierzJson('uzytkownicy.json');
-      if (Object.hasOwn(uzytkownicy, await identyfikatorLoginu(sesja.login))) {
-        stan.login = sesja.login;
-        stan.klucz = sesja.klucz;
-        return await uruchomAplikacje();
-      }
-    } catch { /* przejdź do logowania */ }
-    usunSesje();
+  if (window.KONFIGURACJA.supabaseUrl.includes('TWOJ-PROJEKT')) {
+    document.body.textContent = 'Strona nie jest jeszcze skonfigurowana (uzupełnij strona/konfiguracja.js).';
+    return;
   }
-  pokazLogowanie();
+  const { data } = await sb.auth.getSession();
+  if (data.session) await poZalogowaniu(data.session.user);
+  else pokazEkranNiezalogowanego();
 })();

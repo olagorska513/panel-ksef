@@ -1,0 +1,27 @@
+name: Pobieranie komunikatów
+
+on:
+  schedule:
+    # Godziny w UTC: 7:00, 12:00 i 16:00 czasu polskiego zimowego (latem o godzinę później).
+    # GitHub może uruchomić zadanie z kilkunastominutowym opóźnieniem.
+    - cron: '0 6,11,15 * * *'
+  workflow_dispatch: # przycisk "Run workflow" = sprawdź teraz
+
+permissions:
+  contents: read
+
+jobs:
+  pobierz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pobierz komunikaty KSeF i zapisz w Supabase
+        run: node narzedzia/pobierz-komunikaty.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

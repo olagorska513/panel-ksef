@@ -6,37 +6,31 @@ dostępna po zalogowaniu.
 
 ## Jak to działa
 
-- **GitHub Actions** (`.github/workflows/strona.yml`) trzy razy dziennie pobiera komunikaty ze strony
-  ministerstwa, szyfruje je i publikuje stronę na GitHub Pages.
-- **Treść komunikatów jest zaszyfrowana** (`dane.enc.json`, AES-256-GCM). Klucz do niej jest zapisany
-  w `strona/uzytkownicy.json` osobno dla każdego konta, zaszyfrowany hasłem tego konta (PBKDF2, 600 000 iteracji).
-  Bez poprawnego loginu i hasła nie da się odczytać komunikatów.
-- Klucz danych jest przechowywany lokalnie w pliku `.klucz-danych` (nie trafia do repozytorium)
-  oraz w sekrecie repozytorium `KLUCZ_DANYCH`.
+- **Strona** (`strona/`) jest publikowana na GitHub Pages przez `.github/workflows/strona.yml`.
+- **Konta i dane** są w [Supabase](https://supabase.com). Każdy, kto ma link, zakłada konto sam
+  (e-mail i hasło) i od razu ma dostęp. Pierwsze założone konto zostaje administratorem i może
+  blokować konta w zakładce **Użytkownicy**.
+- **Komunikaty** pobiera trzy razy dziennie `.github/workflows/komunikaty.yml`
+  (`narzedzia/pobierz-komunikaty.mjs`) i zapisuje je w tabeli `komunikaty`.
+- Dostępu do danych pilnują reguły Row Level Security w bazie (`supabase/schemat.sql`):
+  komunikaty widzą tylko zalogowani użytkownicy z niezablokowanym kontem.
 
-## Zarządzanie kontami
+## Konfiguracja
 
-Kliknij dwukrotnie odpowiedni plik i podaj login:
+1. Supabase → **SQL Editor**: uruchom `supabase/schemat.sql`.
+2. Supabase → **Authentication → Sign In / Providers → Email**: wyłącz **Confirm email**
+   (wbudowana poczta Supabase wysyła wiadomości tylko do członków zespołu projektu).
+3. `strona/konfiguracja.js`: wpisz adres projektu i klucz **publishable** (Project Settings → API Keys).
+4. GitHub → **Settings → Secrets and variables → Actions**: dodaj sekrety
+   `SUPABASE_URL` oraz `SUPABASE_SECRET_KEY` (klucz **secret**, nigdy nie wpisuj go do plików).
+5. GitHub → **Actions → Pobieranie komunikatów → Run workflow**.
 
-| Plik | Co robi |
-|---|---|
-| `Dodaj użytkownika.cmd` | zakłada konto, wypisuje hasło do przekazania i publikuje zmianę |
-| `Nadaj nowe hasło.cmd` | nadaje nowe hasło (stare przestaje działać) |
-| `Usuń użytkownika.cmd` | usuwa konto |
+## Na co uważać
 
-Albo z wiersza poleceń: `node narzedzia/uzytkownicy.mjs dodaj|nowe-haslo|usun|lista <login> [--opublikuj]`.
-
-Hasła są generowane automatycznie (14 znaków). Użytkownicy nie mogą sami zmienić hasła,
-bo strona na GitHub Pages nie może zapisywać danych.
-
-## Sprawdzenie komunikatów na żądanie
-
-GitHub → zakładka **Actions** → **Aktualizacja strony** → **Run workflow**.
-
-## Ograniczenia
-
-- Usunięcie konta blokuje logowanie. Osoba, która była już zalogowana w otwartej karcie przeglądarki,
-  widzi dane do jej zamknięcia. Aby całkowicie odciąć dostęp, trzeba wygenerować nowy klucz danych
-  i nadać wszystkim nowe hasła.
+- Hasła nie da się zresetować e-mailem bez własnego serwera poczty (SMTP) w Supabase.
+  Osoba, która zapomni hasła, może poprosić administratora o usunięcie konta
+  (Supabase → Authentication → Users) i zarejestrować się ponownie.
+- Darmowy projekt Supabase jest wstrzymywany po tygodniu bez aktywności. Pobieranie komunikatów
+  trzy razy dziennie utrzymuje go w ruchu.
 - W publicznych repozytoriach GitHub wyłącza zaplanowane zadania po 60 dniach bez zmian w repozytorium.
   GitHub wysyła wtedy e-mail, a zadanie włącza się jednym kliknięciem w zakładce Actions.

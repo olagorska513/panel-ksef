@@ -1,13 +1,10 @@
-name: Aktualizacja strony
+name: Publikacja strony
 
 on:
-  schedule:
-    # Godziny w UTC: 7:00, 12:00 i 16:00 czasu polskiego zimowego (latem o godzinę później).
-    # GitHub może uruchomić zadanie z kilkunastominutowym opóźnieniem.
-    - cron: '0 6,11,15 * * *'
   push:
     branches: [main]
-  workflow_dispatch: # przycisk "Run workflow" = sprawdź teraz
+    paths: ['strona/**', '.github/workflows/strona.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,15 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Pobierz i zaszyfruj komunikaty KSeF
-        run: node narzedzia/pobierz-komunikaty.mjs
-        env:
-          KLUCZ_DANYCH: ${{ secrets.KLUCZ_DANYCH }}
 
       - uses: actions/configure-pages@v5
 

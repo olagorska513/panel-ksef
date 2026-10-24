@@ -1,15 +1,12 @@
-// Pobiera komunikaty techniczne KSeF ze strony ministerstwa i zapisuje je zaszyfrowane
-// w strona/dane.enc.json. Uruchamiane automatycznie przez GitHub Actions (.github/workflows/strona.yml).
+// Pobiera komunikaty techniczne KSeF ze strony ministerstwa i zapisuje je w bazie Supabase.
+// Uruchamiane automatycznie przez GitHub Actions (.github/workflows/komunikaty.yml).
 //
-// Użycie lokalne:  node narzedzia/pobierz-komunikaty.mjs
-
-import fs from 'node:fs';
-import path from 'node:path';
-import { KATALOG_PROJEKTU, wczytajKluczDanych, zaszyfruj } from './szyfrowanie.mjs';
+// Wymaga zmiennych środowiskowych:
+//   SUPABASE_URL         adres projektu, np. https://abcd1234.supabase.co
+//   SUPABASE_SECRET_KEY  klucz tajny (sb_secret_... lub dawny service_role) - tylko w sekretach GitHuba!
 
 const ADRES_BAZOWY = 'https://ksef.podatki.gov.pl';
 const ADRES_LISTY = `${ADRES_BAZOWY}/komunikaty-techniczne/`;
-const PLIK_WYNIKU = path.join(KATALOG_PROJEKTU, 'strona', 'dane.enc.json');
 
 function htmlNaTekst(html) {
   return html
@@ -55,6 +52,7 @@ async function pobierzKomunikaty() {
         .join('\n');
       const tresc = htmlNaTekst(markup);
       const tytul = p.properties.title || p.name;
+      // Bez kolumny dla_klienta - przy aktualizacji nie nadpisujemy przygotowanych tekstów
       return {
         id: p.id,
         data: (p.properties.articlePublishDate || p.createDate).slice(0, 10),
@@ -62,16 +60,35 @@ async function pobierzKomunikaty() {
         adres: ADRES_BAZOWY + p.route.path,
         tresc,
         testowy: czyTestowy(tytul, tresc),
-        dlaKlienta: null,
       };
-    })
-    .sort((a, b) => b.data.localeCompare(a.data));
+    });
 }
 
-const klucz = wczytajKluczDanych();
-const komunikaty = await pobierzKomunikaty();
-const wynik = { ostatnieSprawdzenie: new Date().toISOString(), komunikaty };
+function polaczenieSupabase() {
+  const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
+  const klucz = process.env.SUPABASE_SECRET_KEY;
+  if (!url || !klucz) throw new Error('Brak SUPABASE_URL lub SUPABASE_SECRET_KEY (ustaw je w sekretach repozytorium).');
 
-fs.mkdirSync(path.dirname(PLIK_WYNIKU), { recursive: true });
-fs.writeFileSync(PLIK_WYNIKU, JSON.stringify({ wersja: 1, ...(await zaszyfruj(klucz, JSON.stringify(wynik))) }));
-console.log(`Pobrano ${komunikaty.length} komunikatów (najnowszy: ${komunikaty[0]?.data} ${komunikaty[0]?.tytul}).`);
+  const naglowki = { apikey: klucz, 'Content-Type': 'application/json' };
+  // Dawny klucz service_role jest tokenem JWT i musi być też w nagłówku Authorization
+  if (klucz.startsWith('eyJ')) naglowki.Authorization = `Bearer ${klucz}`;
+
+  return async (metoda, sciezka, cialo, dodatkowe = {}) => {
+    const odp = await fetch(`${url}/rest/v1/${sciezka}`, {
+      method: metoda,
+      headers: { ...naglowki, ...dodatkowe },
+      body: JSON.stringify(cialo),
+    });
+    if (!odp.ok) throw new Error(`Supabase: ${metoda} ${sciezka} -> ${odp.status} ${await odp.text()}`);
+  };
+}
+
+const zapytanie = polaczenieSupabase();
+const komunikaty = await pobierzKomunikaty();
+if (!komunikaty.length) throw new Error('Strona nie zwróciła żadnych komunikatów.');
+
+await zapytanie('POST', 'komunikaty?on_conflict=id', komunikaty, { Prefer: 'resolution=merge-duplicates,return=minimal' });
+await zapytanie('PATCH', 'stan?id=eq.1', { ostatnie_sprawdzenie: new Date().toISOString() }, { Prefer: 'return=minimal' });
+
+const najnowszy = komunikaty.reduce((a, b) => (b.data > a.data ? b : a));
+console.log(`Zapisano ${komunikaty.length} komunikatów (najnowszy: ${najnowszy.data} ${najnowszy.tytul}).`);

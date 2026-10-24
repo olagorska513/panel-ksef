@@ -188,3 +188,7 @@ h3 { font-size: 1.05rem; margin: 4px 0 10px; }
 }
 
 .wskazowka { color: var(--tekst-cichy); font-size: 0.85rem; margin: 0; text-align: center; }
+
+.formularz-konta { display: flex; flex-direction: column; gap: 14px; }
+
+.tabela tr.zablokowany td { color: var(--tekst-cichy); }

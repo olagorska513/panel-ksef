@@ -3,33 +3,76 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co">
   <meta name="robots" content="noindex">
   <title>Panel KSeF</title>
   <link rel="icon" href="ikona.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="vendor/supabase.js" defer></script>
+  <script src="konfiguracja.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
 
-  <!-- Ekran logowania -->
-  <main id="widok-logowania" class="logowanie" hidden>
-    <form id="formularz-logowania" class="karta karta-logowania" novalidate>
+  <!-- Logowanie / rejestracja / zmiana hasła / konto zablokowane -->
+  <main id="widok-konta" class="logowanie" hidden>
+    <div class="karta karta-logowania">
       <div class="logo">
         <img src="ikona.svg" alt="" width="40" height="40">
         <span>Panel KSeF</span>
       </div>
-      <h1>Zaloguj się</h1>
-      <label>Login
-        <input id="pole-login" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-      </label>
-      <label>Hasło
-        <input id="pole-haslo" name="haslo" type="password" autocomplete="current-password" required>
-      </label>
-      <p id="logowanie-blad" class="blad" role="alert" hidden></p>
-      <button type="submit" class="przycisk przycisk-glowny" id="przycisk-logowania">Zaloguj</button>
-      <p class="wskazowka">Nie masz konta? Poproś o nie administratora panelu.</p>
-    </form>
+
+      <form id="formularz-logowania" class="formularz-konta" novalidate>
+        <h1>Zaloguj się</h1>
+        <label>E-mail
+          <input id="logowanie-email" type="email" autocomplete="username" required>
+        </label>
+        <label>Hasło
+          <input id="logowanie-haslo" type="password" autocomplete="current-password" required>
+        </label>
+        <p class="blad" role="alert" hidden></p>
+        <button type="submit" class="przycisk przycisk-glowny">Zaloguj</button>
+        <p class="wskazowka">Nie masz konta? <a href="#/rejestracja">Zarejestruj się</a></p>
+        <p class="wskazowka">Nie pamiętasz hasła? Napisz do administratora panelu.</p>
+      </form>
+
+      <form id="formularz-rejestracji" class="formularz-konta" novalidate hidden>
+        <h1>Załóż konto</h1>
+        <label>E-mail
+          <input id="rejestracja-email" type="email" autocomplete="username" required>
+        </label>
+        <label>Hasło (co najmniej 8 znaków)
+          <input id="rejestracja-haslo" type="password" autocomplete="new-password" required>
+        </label>
+        <label>Powtórz hasło
+          <input id="rejestracja-haslo2" type="password" autocomplete="new-password" required>
+        </label>
+        <p class="blad" role="alert" hidden></p>
+        <button type="submit" class="przycisk przycisk-glowny">Załóż konto</button>
+        <p class="wskazowka">Masz już konto? <a href="#/logowanie">Zaloguj się</a></p>
+      </form>
+
+      <form id="formularz-hasla" class="formularz-konta" novalidate hidden>
+        <h1>Zmień hasło</h1>
+        <label>Nowe hasło (co najmniej 8 znaków)
+          <input id="nowe-haslo" type="password" autocomplete="new-password" required>
+        </label>
+        <label>Powtórz nowe hasło
+          <input id="nowe-haslo2" type="password" autocomplete="new-password" required>
+        </label>
+        <p class="blad" role="alert" hidden></p>
+        <button type="submit" class="przycisk przycisk-glowny">Zapisz hasło</button>
+        <button type="button" class="przycisk" id="przycisk-anuluj-haslo">Anuluj</button>
+      </form>
+
+      <div id="zablokowane" class="formularz-konta" hidden>
+        <h1>Brak dostępu</h1>
+        <p class="opis">
+          Konto <strong id="zablokowane-email"></strong> zostało zablokowane przez administratora panelu.
+        </p>
+        <button type="button" class="przycisk przycisk-wyloguj">Wyloguj</button>
+      </div>
+    </div>
   </main>
 
   <!-- Aplikacja po zalogowaniu -->
@@ -43,10 +86,12 @@
         <nav class="zakladki" aria-label="Główne">
           <a href="#/pulpit" data-zakladka="pulpit">Pulpit</a>
           <a href="#/komunikaty" data-zakladka="komunikaty">Komunikaty KSeF</a>
+          <a href="#/uzytkownicy" data-zakladka="uzytkownicy" id="link-uzytkownicy" hidden>Użytkownicy</a>
         </nav>
         <div class="uzytkownik">
           <span id="nazwa-uzytkownika"></span>
-          <button id="przycisk-wyloguj" class="przycisk przycisk-cichy">Wyloguj</button>
+          <button id="przycisk-zmien-haslo" class="przycisk przycisk-cichy">Zmień hasło</button>
+          <button class="przycisk przycisk-cichy przycisk-wyloguj">Wyloguj</button>
         </div>
       </div>
     </header>
@@ -101,6 +146,23 @@
 
         <div id="komunikaty-lista" class="lista"></div>
         <button id="przycisk-wiecej" class="przycisk przycisk-cichy przycisk-wiecej" hidden>Pokaż więcej</button>
+      </section>
+
+      <!-- Użytkownicy (tylko administrator) -->
+      <section id="zakladka-uzytkownicy" hidden>
+        <h1>Użytkownicy</h1>
+        <p class="opis">
+          Osoby z linkiem do strony zakładają konta same i od razu mają dostęp.
+          Jeśli na liście jest ktoś nieznany, zablokuj jego konto.
+        </p>
+        <div class="karta tabela-kontener">
+          <table class="tabela">
+            <thead>
+              <tr><th>E-mail</th><th>Status</th><th>Zarejestrowano</th><th></th></tr>
+            </thead>
+            <tbody id="lista-uzytkownikow"></tbody>
+          </table>
+        </div>
       </section>
 
     </main>
