@@ -217,14 +217,21 @@ function pokazAplikacje() {
 }
 
 async function wczytajDane() {
-  const [komunikaty, stanSprawdzenia] = await Promise.all([
-    sb.from('komunikaty').select('id, data, tytul, adres, tresc, testowy, dla_klienta').order('data', { ascending: false }),
-    sb.from('stan').select('ostatnie_sprawdzenie').eq('id', 1).maybeSingle(),
+  const pobierzKomunikaty = (kolumny) => sb.from('komunikaty').select(kolumny).order('data', { ascending: false });
+  const pobierzStan = (kolumny) => sb.from('stan').select(kolumny).eq('id', 1).maybeSingle();
+  let [komunikaty, stanSprawdzenia] = await Promise.all([
+    pobierzKomunikaty('id, data, tytul, adres, tresc, testowy, dla_klienta, okresy'),
+    pobierzStan('ostatnie_sprawdzenie, latarnia_status, latarnia_komunikaty, latarnia_sprawdzenie'),
   ]);
+  // Baza bez nowych kolumn (nie uruchomiono jeszcze aktualnego supabase/schemat.sql)
+  if (komunikaty.error) komunikaty = await pobierzKomunikaty('id, data, tytul, adres, tresc, testowy, dla_klienta');
+  if (stanSprawdzenia.error) stanSprawdzenia = await pobierzStan('ostatnie_sprawdzenie');
   if (komunikaty.error) powiadom('Nie udało się wczytać komunikatów: ' + opisBledu(komunikaty.error));
+  const s = stanSprawdzenia.data || {};
   stan.dane = {
     komunikaty: komunikaty.data || [],
-    ostatnieSprawdzenie: stanSprawdzenia.data?.ostatnie_sprawdzenie || null,
+    ostatnieSprawdzenie: s.ostatnie_sprawdzenie || null,
+    latarnia: { status: s.latarnia_status || null, komunikaty: s.latarnia_komunikaty || [], sprawdzenie: s.latarnia_sprawdzenie || null },
   };
   if (stan.profil?.admin) await wczytajUzytkownikow();
   odswiezWidoki();
@@ -342,6 +349,7 @@ window.addEventListener('hashchange', () => {
 function odswiezWidoki() {
   odswiezPulpit();
   odswiezListe();
+  odswiezDostepnosc();
   const nowe = stan.dane.komunikaty.filter((k) => dniTemu(k.data) <= DNI_NOWY).length;
   document.querySelectorAll('.licznik-nowych').forEach((el) => {
     el.textContent = nowe;
@@ -360,6 +368,130 @@ function odswiezPulpit() {
   $('kafel-30dni-testowe').textContent = testowych30 ? `w tym TEST i DEMO: ${testowych30}` : 'wszystkie dotyczą produkcji';
   $('kafel-najnowszy').textContent = najnowszy ? formatujDate(najnowszy.data) : '—';
   $('kafel-najnowszy-dni').textContent = najnowszy ? opisDni(dniTemu(najnowszy.data)) : '';
+}
+
+// ---------- Dostępność KSeF (strona główna) ----------
+
+const STANY_LATARNI = {
+  AVAILABLE: { klasa: 'ok', tytul: 'KSeF działa' },
+  MAINTENANCE: { klasa: 'uwaga', tytul: 'Trwa planowana przerwa w działaniu KSeF' },
+  FAILURE: { klasa: 'awaria', tytul: 'Awaria KSeF' },
+  TOTAL_FAILURE: { klasa: 'awaria', tytul: 'Awaria całkowita KSeF' },
+};
+
+function formatujChwile(iso) {
+  return new Date(iso).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatujOkres(od, doCzasu) {
+  if (!doCzasu) return `od ${formatujChwile(od)} (koniec nieznany)`;
+  const a = new Date(od);
+  const b = new Date(doCzasu);
+  const godzina = (d) => d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  if (a.toDateString() === b.toDateString()) return `${formatujDate(a.toLocaleDateString('sv'))}, ${godzina(a)}–${godzina(b)}`;
+  return `${formatujChwile(od)} – ${formatujChwile(doCzasu)}`;
+}
+
+function kiedy(od, doCzasu) {
+  const teraz = Date.now();
+  const start = Date.parse(od);
+  if (start <= teraz && (!doCzasu || Date.parse(doCzasu) >= teraz)) return { tekst: 'Trwa teraz', klasa: 'trwa' };
+  const dni = Math.round((new Date(od).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  if (dni === 0) return { tekst: 'Dziś', klasa: 'wkrotce' };
+  if (dni === 1) return { tekst: 'Jutro', klasa: 'wkrotce' };
+  return { tekst: `Za ${dni} dni`, klasa: dni <= 3 ? 'wkrotce' : '' };
+}
+
+// Zdarzenia, które jeszcze trwają albo dopiero nastąpią - z Latarni i z komunikatów ministerstwa
+function zdarzeniaDostepnosci() {
+  const teraz = Date.now();
+  const lista = [];
+
+  for (const m of stan.dane.latarnia?.komunikaty || []) {
+    if (m.type === 'FAILURE_END') continue;
+    if (m.end && Date.parse(m.end) < teraz) continue;
+    lista.push({ zrodlo: 'Latarnia KSeF', tytul: m.title, opis: m.text, od: m.start, do: m.end || null });
+  }
+
+  for (const k of stan.dane.komunikaty) {
+    const okresy = (k.okresy || []).filter((o) => Date.parse(o.do) >= teraz);
+    for (const o of okresy) lista.push({ zrodlo: 'Komunikat MF', tytul: k.tytul, od: o.od, do: o.do, testowy: k.testowy, adres: k.adres });
+    // Świeży komunikat o bieżących utrudnieniach, bez podanych godzin
+    if (!k.okresy?.length && !k.testowy && dniTemu(k.data) <= 1 && /utrudnie|awari|niedostęp/i.test(k.tytul)) {
+      lista.push({ zrodlo: 'Komunikat MF', tytul: k.tytul, od: null, do: null, adres: k.adres, data: k.data });
+    }
+  }
+
+  return lista.sort((a, b) => (a.od ? Date.parse(a.od) : 0) - (b.od ? Date.parse(b.od) : 0));
+}
+
+function odswiezDostepnosc() {
+  const latarnia = stan.dane.latarnia || {};
+  const zdarzenia = zdarzeniaDostepnosci();
+  const trwajace = zdarzenia.filter((z) => z.od && kiedy(z.od, z.do).klasa === 'trwa' && !z.testowy);
+
+  let wyglad = STANY_LATARNI[latarnia.status];
+  if (!wyglad) wyglad = { klasa: 'brak', tytul: 'Dostępność KSeF' };
+  if (wyglad.klasa === 'ok' && trwajace.length) wyglad = { klasa: 'uwaga', tytul: 'Trwają zapowiedziane utrudnienia w KSeF' };
+
+  $('dostepnosc').className = `karta dostepnosc dostepnosc-${wyglad.klasa}`;
+  $('dostepnosc-tytul').textContent = wyglad.tytul;
+  $('dostepnosc-opis').textContent = zdarzenia.length
+    ? 'Przerwy i utrudnienia w działaniu KSeF:'
+    : 'Brak nowych komunikatów o dostępności KSeF.';
+
+  const elementy = zdarzenia.map((z) => {
+    const li = document.createElement('li');
+    const termin = document.createElement('div');
+    termin.className = 'zdarzenie-termin';
+    if (z.od) {
+      const k = kiedy(z.od, z.do);
+      const znacznik = document.createElement('span');
+      znacznik.className = `znacznik znacznik-kiedy ${k.klasa}`;
+      znacznik.textContent = k.tekst;
+      termin.append(znacznik, ' ', formatujOkres(z.od, z.do));
+    } else {
+      termin.textContent = `Zgłoszono ${formatujDate(z.data)}`;
+    }
+    if (z.testowy) {
+      const t = document.createElement('span');
+      t.className = 'znacznik znacznik-testowy';
+      t.textContent = 'TEST / DEMO';
+      termin.append(' ', t);
+    }
+
+    const tytul = document.createElement(z.adres ? 'a' : 'span');
+    tytul.className = 'zdarzenie-tytul';
+    tytul.textContent = z.tytul;
+    if (z.adres) {
+      tytul.href = z.adres;
+      tytul.target = '_blank';
+      tytul.rel = 'noopener';
+    }
+    const zrodlo = document.createElement('span');
+    zrodlo.className = 'zdarzenie-zrodlo';
+    zrodlo.textContent = z.zrodlo;
+
+    li.append(termin, tytul, zrodlo);
+    if (z.opis) {
+      const opis = document.createElement('p');
+      opis.className = 'zdarzenie-opis';
+      opis.textContent = z.opis;
+      li.append(opis);
+    }
+    return li;
+  });
+  $('dostepnosc-lista').replaceChildren(...elementy);
+  $('dostepnosc-lista').hidden = !elementy.length;
+
+  let zrodlo = 'Stan z Latarni KSeF (Ministerstwo Finansów)';
+  if (latarnia.sprawdzenie) {
+    zrodlo += `, sprawdzono ${formatujDateCzas(latarnia.sprawdzenie)}`;
+    if (Date.now() - Date.parse(latarnia.sprawdzenie) > 2 * 3600000) zrodlo += ' – dane mogą być nieaktualne';
+  } else {
+    zrodlo = 'Stan z Latarni KSeF nie został jeszcze pobrany.';
+  }
+  $('dostepnosc-zrodlo').textContent = zrodlo;
 }
 
 function odswiezListe() {
@@ -471,10 +603,13 @@ async function wczytajUzytkownikow() {
   $('lista-uzytkownikow').replaceChildren(...wiersze);
 }
 
-// Po powrocie do karty przeglądarki pobierz najnowsze dane
+// Po powrocie do karty przeglądarki i co 5 minut pobierz najnowsze dane
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && stan.profil?.zatwierdzony) wczytajDane();
 });
+setInterval(() => {
+  if (!document.hidden && stan.profil?.zatwierdzony) wczytajDane();
+}, 5 * 60000);
 
 // ---------- Start ----------
 

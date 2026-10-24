@@ -1,0 +1,27 @@
+name: Status KSeF (Latarnia)
+
+on:
+  schedule:
+    # Co 15 minut. GitHub może uruchamiać zadanie z kilkuminutowym opóźnieniem.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  latarnia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Pobierz stan KSeF z Latarni i zapisz w Supabase
+        run: node narzedzia/latarnia.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

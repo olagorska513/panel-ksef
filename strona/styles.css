@@ -203,7 +203,31 @@ body.menu-zwiniete .podmenu { padding-left: 0; }
 .okruszki { color: var(--tekst-cichy); font-size: 0.85rem; margin: 0 0 6px; }
 .okruszki span { margin: 0 4px; }
 
-.strona-glowna { min-height: calc(100vh - var(--wys-paska) - 88px); display: grid; place-items: center; }
+.strona-glowna {
+  min-height: calc(100vh - var(--wys-paska) - 88px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px;
+}
+
+/* ---------- Dostępność KSeF ---------- */
+.dostepnosc { width: 100%; max-width: 760px; padding: 20px 24px; border-left: 5px solid var(--kolor-stanu, var(--ramka)); }
+.dostepnosc-ok { --kolor-stanu: #1a9a55; }
+.dostepnosc-uwaga { --kolor-stanu: #d99a00; }
+.dostepnosc-awaria { --kolor-stanu: var(--blad); }
+.dostepnosc-naglowek { display: flex; gap: 14px; align-items: flex-start; }
+.dostepnosc-naglowek h2 { font-size: 1.2rem; }
+.dostepnosc-naglowek p { margin: 2px 0 0; color: var(--tekst-cichy); }
+.kropka { width: 14px; height: 14px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--kolor-stanu, var(--tekst-cichy)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--kolor-stanu, transparent) 22%, transparent); }
+.dostepnosc-lista { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.dostepnosc-lista li { padding: 12px 14px; border-radius: 8px; background: var(--tlo); display: flex; flex-direction: column; gap: 3px; }
+.zdarzenie-termin { font-weight: 600; font-size: 0.92rem; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.zdarzenie-tytul { color: var(--tekst); font-size: 0.92rem; }
+a.zdarzenie-tytul:hover { color: var(--akcent); }
+.zdarzenie-zrodlo { color: var(--tekst-cichy); font-size: 0.8rem; }
+.zdarzenie-opis { margin: 4px 0 0; font-size: 0.88rem; color: var(--tekst-cichy); white-space: pre-line; }
+.znacznik-kiedy { background: var(--akcent-jasny); color: var(--akcent); }
+.znacznik-kiedy.wkrotce { background: var(--ostrzezenie-tlo); color: var(--ostrzezenie); }
+.znacznik-kiedy.trwa { background: var(--blad); color: #fff; }
+.dostepnosc-zrodlo { margin: 14px 0 0; font-size: 0.8rem; color: var(--tekst-cichy); }
 
 .kafelki { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 32px; }
 .kafelek { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; color: inherit; text-decoration: none; }

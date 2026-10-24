@@ -16,6 +16,10 @@ dostępna po zalogowaniu.
   „Krajowy System e-Faktur” albo „Moduł Certyfikatów i Uprawnień” (funkcja `czyDotyczyKsef`).
   Komunikat oznaczany jest jako TEST / DEMO, gdy dotyczy środowiska testowego lub przedprodukcyjnego
   i nie wspomina środowiska produkcyjnego (funkcja `czyTestowy`).
+  Z treści komunikatów wyciągane są terminy przerw od–do (`narzedzia/okresy.mjs`).
+- **Stan KSeF** co 15 minut pobiera z [Latarni MF](https://github.com/CIRFMF/ksef-latarnia)
+  `.github/workflows/latarnia.yml` (`narzedzia/latarnia.mjs`). Strona główna pokazuje go
+  razem z nadchodzącymi i trwającymi przerwami.
 - Dostępu do danych pilnują reguły Row Level Security w bazie (`supabase/schemat.sql`):
   komunikaty widzą tylko zalogowani użytkownicy z niezablokowanym kontem.
 

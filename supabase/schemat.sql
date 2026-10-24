@@ -21,6 +21,14 @@ create table if not exists public.stan (
 );
 insert into public.stan (id) values (1) on conflict do nothing;
 
+-- Terminy przerw wyciągnięte z treści komunikatu: [{ "od": "...", "do": "..." }]
+alter table public.komunikaty add column if not exists okresy jsonb not null default '[]';
+
+-- Stan KSeF z Latarni MF (zapisuje go GitHub Actions co 15 minut)
+alter table public.stan add column if not exists latarnia_status text;
+alter table public.stan add column if not exists latarnia_komunikaty jsonb not null default '[]';
+alter table public.stan add column if not exists latarnia_sprawdzenie timestamptz;
+
 -- ---------- Profile użytkowników ----------
 -- Każde nowe konto od razu ma dostęp. Administrator może je zablokować (zatwierdzony = false).
 -- Pierwsze konto w systemie zostaje automatycznie administratorem.

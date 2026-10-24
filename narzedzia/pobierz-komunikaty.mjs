@@ -1,9 +1,9 @@
 // Pobiera komunikaty techniczne KSeF ze strony ministerstwa i zapisuje je w bazie Supabase.
 // Uruchamiane automatycznie przez GitHub Actions (.github/workflows/komunikaty.yml).
-//
-// Wymaga zmiennych środowiskowych:
-//   SUPABASE_URL         adres projektu, np. https://abcd1234.supabase.co
-//   SUPABASE_SECRET_KEY  klucz tajny (sb_secret_... lub dawny service_role) - tylko w sekretach GitHuba!
+// Wymaga zmiennych SUPABASE_URL i SUPABASE_SECRET_KEY (patrz narzedzia/supabase.mjs).
+
+import { polaczenieSupabase } from './supabase.mjs';
+import { wyciagnijOkresy } from './okresy.mjs';
 
 const ADRES_BAZOWY = 'https://ksef.podatki.gov.pl';
 const ADRES_LISTY = `${ADRES_BAZOWY}/komunikaty-techniczne/`;
@@ -71,27 +71,9 @@ async function pobierzKomunikaty() {
         adres: ADRES_BAZOWY + p.route.path,
         tresc,
         testowy: czyTestowy(tytul, tresc),
+        okresy: wyciagnijOkresy(`${tytul}\n${tresc}`),
       };
     });
-}
-
-function polaczenieSupabase() {
-  const url = process.env.SUPABASE_URL?.replace(/\/+$/, '');
-  const klucz = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !klucz) throw new Error('Brak SUPABASE_URL lub SUPABASE_SECRET_KEY (ustaw je w sekretach repozytorium).');
-
-  const naglowki = { apikey: klucz, 'Content-Type': 'application/json' };
-  // Dawny klucz service_role jest tokenem JWT i musi być też w nagłówku Authorization
-  if (klucz.startsWith('eyJ')) naglowki.Authorization = `Bearer ${klucz}`;
-
-  return async (metoda, sciezka, cialo, dodatkowe = {}) => {
-    const odp = await fetch(`${url}/rest/v1/${sciezka}`, {
-      method: metoda,
-      headers: { ...naglowki, ...dodatkowe },
-      body: JSON.stringify(cialo),
-    });
-    if (!odp.ok) throw new Error(`Supabase: ${metoda} ${sciezka} -> ${odp.status} ${await odp.text()}`);
-  };
 }
 
 const zapytanie = polaczenieSupabase();
