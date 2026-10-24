@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta name="robots" content="noindex">
+  <title>Panel KSeF</title>
+  <link rel="icon" href="ikona.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- Ekran logowania -->
+  <main id="widok-logowania" class="logowanie" hidden>
+    <form id="formularz-logowania" class="karta karta-logowania" novalidate>
+      <div class="logo">
+        <img src="ikona.svg" alt="" width="40" height="40">
+        <span>Panel KSeF</span>
+      </div>
+      <h1>Zaloguj się</h1>
+      <label>Login
+        <input id="pole-login" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label>Hasło
+        <input id="pole-haslo" name="haslo" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="logowanie-blad" class="blad" role="alert" hidden></p>
+      <button type="submit" class="przycisk przycisk-glowny" id="przycisk-logowania">Zaloguj</button>
+      <p class="wskazowka">Nie masz konta? Poproś o nie administratora panelu.</p>
+    </form>
+  </main>
+
+  <!-- Aplikacja po zalogowaniu -->
+  <div id="widok-aplikacji" hidden>
+    <header class="naglowek">
+      <div class="naglowek-wnetrze">
+        <a class="logo" href="#/pulpit">
+          <img src="ikona.svg" alt="" width="28" height="28">
+          <span>Panel KSeF</span>
+        </a>
+        <nav class="zakladki" aria-label="Główne">
+          <a href="#/pulpit" data-zakladka="pulpit">Pulpit</a>
+          <a href="#/komunikaty" data-zakladka="komunikaty">Komunikaty KSeF</a>
+        </nav>
+        <div class="uzytkownik">
+          <span id="nazwa-uzytkownika"></span>
+          <button id="przycisk-wyloguj" class="przycisk przycisk-cichy">Wyloguj</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="tresc">
+
+      <!-- Pulpit -->
+      <section id="zakladka-pulpit" hidden>
+        <h1 id="powitanie">Dzień dobry</h1>
+        <p class="opis">Podsumowanie komunikatów technicznych Krajowego Systemu e-Faktur.</p>
+
+        <div class="kafelki">
+          <div class="karta kafelek">
+            <span class="kafelek-etykieta">Ostatnie sprawdzenie strony</span>
+            <span class="kafelek-wartosc" id="kafel-sprawdzenie">—</span>
+            <span class="kafelek-dopisek">automatycznie 3 razy dziennie</span>
+          </div>
+          <a class="karta kafelek kafelek-link" href="#/komunikaty">
+            <span class="kafelek-etykieta">Komunikaty z ostatnich 30 dni</span>
+            <span class="kafelek-wartosc" id="kafel-30dni">—</span>
+            <span class="kafelek-dopisek">bez środowisk testowych</span>
+          </a>
+          <a class="karta kafelek kafelek-link" href="#/komunikaty">
+            <span class="kafelek-etykieta">Najnowszy komunikat</span>
+            <span class="kafelek-wartosc" id="kafel-najnowszy">—</span>
+            <span class="kafelek-dopisek" id="kafel-najnowszy-dni"></span>
+          </a>
+        </div>
+
+        <div class="sekcja-naglowek">
+          <h2>Najnowsze komunikaty</h2>
+          <a href="#/komunikaty">Wszystkie komunikaty →</a>
+        </div>
+        <div id="pulpit-najnowsze" class="lista"></div>
+      </section>
+
+      <!-- Komunikaty KSeF -->
+      <section id="zakladka-komunikaty" hidden>
+        <h1>Komunikaty KSeF</h1>
+        <p class="opis">
+          Źródło: <a href="https://ksef.podatki.gov.pl/komunikaty-techniczne/" target="_blank" rel="noopener">ksef.podatki.gov.pl/komunikaty-techniczne</a>
+          · ostatnie sprawdzenie: <span id="komunikaty-sprawdzenie">—</span>
+        </p>
+
+        <div class="filtry">
+          <input id="filtr-szukaj" type="search" placeholder="Szukaj w komunikatach…" aria-label="Szukaj">
+          <label class="przelacznik">
+            <input id="filtr-testowe" type="checkbox">
+            Pokaż komunikaty o środowiskach testowych (TEST / DEMO)
+          </label>
+        </div>
+
+        <div id="komunikaty-lista" class="lista"></div>
+        <button id="przycisk-wiecej" class="przycisk przycisk-cichy przycisk-wiecej" hidden>Pokaż więcej</button>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="powiadomienie" class="powiadomienie" role="status" hidden></div>
+
+  <template id="szablon-komunikatu">
+    <article class="karta komunikat">
+      <div class="komunikat-meta">
+        <time class="komunikat-data"></time>
+        <span class="znacznik znacznik-nowy" hidden>Nowy</span>
+        <span class="znacznik znacznik-testowy" hidden>TEST / DEMO</span>
+      </div>
+      <h3 class="komunikat-tytul"></h3>
+      <div class="dla-klienta">
+        <div class="dla-klienta-naglowek">
+          <span class="dla-klienta-etykieta"></span>
+          <button class="przycisk przycisk-cichy przycisk-kopiuj">Kopiuj</button>
+        </div>
+        <p class="dla-klienta-tekst"></p>
+      </div>
+      <details class="komunikat-szczegoly" hidden>
+        <summary>Pełna treść komunikatu</summary>
+        <p class="komunikat-tresc"></p>
+      </details>
+      <a class="komunikat-zrodlo" target="_blank" rel="noopener">Zobacz na stronie ministerstwa ↗</a>
+    </article>
+  </template>
+
+</body>
+</html>
