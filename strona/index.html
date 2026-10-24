@@ -196,35 +196,8 @@
       <main class="tresc">
 
         <!-- Strona główna -->
-        <section id="zakladka-start" hidden>
-          <div class="powitanie-baner">
-            <div class="znak znak-glowny"><span>FAKTURA</span><span>365</span></div>
-            <p id="powitanie" class="opis"></p>
-          </div>
-
-          <div class="kafelki">
-            <div class="karta kafelek">
-              <span class="kafelek-etykieta">Ostatnie sprawdzenie komunikatów KSeF</span>
-              <span class="kafelek-wartosc" id="kafel-sprawdzenie">—</span>
-              <span class="kafelek-dopisek">automatycznie 3 razy dziennie</span>
-            </div>
-            <a class="karta kafelek kafelek-link" href="#/komunikaty">
-              <span class="kafelek-etykieta">Komunikaty KSeF z ostatnich 30 dni</span>
-              <span class="kafelek-wartosc" id="kafel-30dni">—</span>
-              <span class="kafelek-dopisek" id="kafel-30dni-testowe"></span>
-            </a>
-            <a class="karta kafelek kafelek-link" href="#/komunikaty">
-              <span class="kafelek-etykieta">Najnowszy komunikat KSeF</span>
-              <span class="kafelek-wartosc" id="kafel-najnowszy">—</span>
-              <span class="kafelek-dopisek" id="kafel-najnowszy-dni"></span>
-            </a>
-          </div>
-
-          <div class="sekcja-naglowek">
-            <h2>Najnowsze komunikaty KSeF</h2>
-            <a href="#/komunikaty">Wszystkie komunikaty →</a>
-          </div>
-          <div id="pulpit-najnowsze" class="lista"></div>
+        <section id="zakladka-start" class="strona-glowna" hidden>
+          <div class="znak znak-glowny"><span>FAKTURA</span><span>365</span></div>
         </section>
 
         <!-- Dashboard → Komunikaty KSeF -->
@@ -233,8 +206,25 @@
           <h1>Komunikaty KSeF</h1>
           <p class="opis">
             Źródło: <a href="https://ksef.podatki.gov.pl/komunikaty-techniczne/" target="_blank" rel="noopener">ksef.podatki.gov.pl/komunikaty-techniczne</a>
-            · ostatnie sprawdzenie: <span id="komunikaty-sprawdzenie">—</span>
           </p>
+
+          <div class="kafelki">
+            <div class="karta kafelek">
+              <span class="kafelek-etykieta">Ostatnie sprawdzenie komunikatów KSeF</span>
+              <span class="kafelek-wartosc" id="kafel-sprawdzenie">—</span>
+              <span class="kafelek-dopisek">automatycznie 3 razy dziennie</span>
+            </div>
+            <div class="karta kafelek">
+              <span class="kafelek-etykieta">Komunikaty KSeF z ostatnich 30 dni</span>
+              <span class="kafelek-wartosc" id="kafel-30dni">—</span>
+              <span class="kafelek-dopisek" id="kafel-30dni-testowe"></span>
+            </div>
+            <div class="karta kafelek">
+              <span class="kafelek-etykieta">Najnowszy komunikat KSeF</span>
+              <span class="kafelek-wartosc" id="kafel-najnowszy">—</span>
+              <span class="kafelek-dopisek" id="kafel-najnowszy-dni"></span>
+            </div>
+          </div>
 
           <div class="filtry">
             <input id="filtr-szukaj" type="search" placeholder="Szukaj w komunikatach…" aria-label="Szukaj">

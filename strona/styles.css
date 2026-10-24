@@ -203,8 +203,7 @@ body.menu-zwiniete .podmenu { padding-left: 0; }
 .okruszki { color: var(--tekst-cichy); font-size: 0.85rem; margin: 0 0 6px; }
 .okruszki span { margin: 0 4px; }
 
-.powitanie-baner { text-align: center; padding: 28px 16px 36px; }
-.powitanie-baner .opis { margin: 16px 0 0; font-size: 1.05rem; }
+.strona-glowna { min-height: calc(100vh - var(--wys-paska) - 88px); display: grid; place-items: center; }
 
 .kafelki { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 32px; }
 .kafelek { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; color: inherit; text-decoration: none; }

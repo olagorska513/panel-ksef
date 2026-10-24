@@ -203,6 +203,8 @@ async function poZalogowaniu(uzytkownik) {
   $('nazwa-uzytkownika').textContent = uzytkownik.email;
   $('awatar').textContent = inicjaly(uzytkownik.email);
   $('link-uzytkownicy').hidden = !profil.admin;
+  // Administrator od razu widzi pozycję Administracja → Użytkownicy
+  if (profil.admin) ustawGrupe(document.querySelector('[data-grupa="administracja"]'), true);
   if (!location.hash || ['#/logowanie', '#/rejestracja'].includes(location.hash)) location.hash = '#/start';
   await wczytajDane();
   pokazAplikacje();
@@ -353,17 +355,11 @@ function odswiezPulpit() {
   const z30dni = komunikaty.filter((k) => dniTemu(k.data) <= 30);
   const testowych30 = z30dni.filter((k) => k.testowy).length;
 
-  $('powitanie').textContent =
-    (new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór') + '! Oto podsumowanie komunikatów technicznych KSeF.';
   $('kafel-sprawdzenie').textContent = formatujDateCzas(ostatnieSprawdzenie);
   $('kafel-30dni').textContent = z30dni.length;
   $('kafel-30dni-testowe').textContent = testowych30 ? `w tym TEST i DEMO: ${testowych30}` : 'wszystkie dotyczą produkcji';
   $('kafel-najnowszy').textContent = najnowszy ? formatujDate(najnowszy.data) : '—';
   $('kafel-najnowszy-dni').textContent = najnowszy ? opisDni(dniTemu(najnowszy.data)) : '';
-
-  const kontener = $('pulpit-najnowsze');
-  kontener.replaceChildren(...komunikaty.slice(0, 3).map(kartaKomunikatu));
-  if (!komunikaty.length) kontener.replaceChildren(pustaLista('Brak komunikatów. Pojawią się po pierwszym pobraniu przez GitHub.'));
 }
 
 function odswiezListe() {
@@ -382,7 +378,6 @@ function odswiezListe() {
   }
   const pasujace = wedlugSrodowiska[srodowisko];
 
-  $('komunikaty-sprawdzenie').textContent = formatujDateCzas(stan.dane.ostatnieSprawdzenie);
   const kontener = $('komunikaty-lista');
   kontener.replaceChildren(...pasujace.slice(0, stan.limit).map(kartaKomunikatu));
   if (!pasujace.length) kontener.replaceChildren(pustaLista('Nie znaleziono komunikatów.'));
