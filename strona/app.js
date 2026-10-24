@@ -435,6 +435,8 @@ function odswiezDostepnosc() {
   if (wyglad.klasa === 'ok' && trwajace.length) wyglad = { klasa: 'uwaga', tytul: 'Trwają zapowiedziane utrudnienia w KSeF' };
 
   $('dostepnosc').className = `karta dostepnosc dostepnosc-${wyglad.klasa}`;
+  // Przypomnienie o trybie offline, gdy KSeF jest teraz niedostępny według Latarni
+  $('dostepnosc-offline').hidden = !['MAINTENANCE', 'FAILURE', 'TOTAL_FAILURE'].includes(latarnia.status);
   $('dostepnosc-tytul').textContent = wyglad.tytul;
   $('dostepnosc-opis').textContent = zdarzenia.length
     ? 'Przerwy i utrudnienia w działaniu KSeF:'
@@ -493,6 +495,22 @@ function odswiezDostepnosc() {
   }
   $('dostepnosc-zrodlo').textContent = zrodlo;
 }
+
+// Chmurka z instrukcją: otwiera się po najechaniu (CSS) albo kliknięciu (telefon)
+function ustawChmurke(otwarta) {
+  $('latarnia-pomoc').classList.toggle('otwarta', otwarta);
+  $('latarnia-przycisk').setAttribute('aria-expanded', String(otwarta));
+}
+$('latarnia-przycisk').addEventListener('click', (e) => {
+  e.stopPropagation();
+  ustawChmurke(!$('latarnia-pomoc').classList.contains('otwarta'));
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#latarnia-pomoc')) ustawChmurke(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') ustawChmurke(false);
+});
 
 function odswiezListe() {
   const fraza = $('filtr-szukaj').value.trim().toLowerCase();
