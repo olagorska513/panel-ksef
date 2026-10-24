@@ -112,7 +112,7 @@
           <a class="karta kafelek kafelek-link" href="#/komunikaty">
             <span class="kafelek-etykieta">Komunikaty z ostatnich 30 dni</span>
             <span class="kafelek-wartosc" id="kafel-30dni">—</span>
-            <span class="kafelek-dopisek">bez środowisk testowych</span>
+            <span class="kafelek-dopisek" id="kafel-30dni-testowe"></span>
           </a>
           <a class="karta kafelek kafelek-link" href="#/komunikaty">
             <span class="kafelek-etykieta">Najnowszy komunikat</span>
@@ -138,10 +138,12 @@
 
         <div class="filtry">
           <input id="filtr-szukaj" type="search" placeholder="Szukaj w komunikatach…" aria-label="Szukaj">
-          <label class="przelacznik">
-            <input id="filtr-testowe" type="checkbox">
-            Pokaż komunikaty o środowiskach testowych (TEST / DEMO)
-          </label>
+          <fieldset id="filtr-srodowisko" class="segmenty">
+            <legend class="ukryte">Środowisko</legend>
+            <label><input type="radio" name="srodowisko" value="wszystkie" checked><span>Wszystkie <b data-licznik="wszystkie"></b></span></label>
+            <label><input type="radio" name="srodowisko" value="produkcyjne"><span>Produkcyjne <b data-licznik="produkcyjne"></b></span></label>
+            <label><input type="radio" name="srodowisko" value="testowe"><span>TEST i DEMO <b data-licznik="testowe"></b></span></label>
+          </fieldset>
         </div>
 
         <div id="komunikaty-lista" class="lista"></div>

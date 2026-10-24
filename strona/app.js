@@ -256,26 +256,37 @@ function odswiezWidoki() {
 
 function odswiezPulpit() {
   const { komunikaty, ostatnieSprawdzenie } = stan.dane;
-  const produkcyjne = komunikaty.filter((k) => !k.testowy);
-  const najnowszy = produkcyjne[0];
+  const najnowszy = komunikaty[0];
+  const z30dni = komunikaty.filter((k) => dniTemu(k.data) <= 30);
+  const testowych30 = z30dni.filter((k) => k.testowy).length;
 
   $('powitanie').textContent = new Date().getHours() < 18 ? 'Dzień dobry' : 'Dobry wieczór';
   $('kafel-sprawdzenie').textContent = formatujDateCzas(ostatnieSprawdzenie);
-  $('kafel-30dni').textContent = produkcyjne.filter((k) => dniTemu(k.data) <= 30).length;
+  $('kafel-30dni').textContent = z30dni.length;
+  $('kafel-30dni-testowe').textContent = testowych30 ? `w tym TEST i DEMO: ${testowych30}` : 'wszystkie dotyczą produkcji';
   $('kafel-najnowszy').textContent = najnowszy ? formatujDate(najnowszy.data) : '—';
   $('kafel-najnowszy-dni').textContent = najnowszy ? opisDni(dniTemu(najnowszy.data)) : '';
 
   const kontener = $('pulpit-najnowsze');
-  kontener.replaceChildren(...produkcyjne.slice(0, 3).map(kartaKomunikatu));
-  if (!produkcyjne.length) kontener.replaceChildren(pustaLista('Brak komunikatów. Pojawią się po pierwszym pobraniu przez GitHub.'));
+  kontener.replaceChildren(...komunikaty.slice(0, 3).map(kartaKomunikatu));
+  if (!komunikaty.length) kontener.replaceChildren(pustaLista('Brak komunikatów. Pojawią się po pierwszym pobraniu przez GitHub.'));
 }
 
 function odswiezListe() {
   const fraza = $('filtr-szukaj').value.trim().toLowerCase();
-  const testowe = $('filtr-testowe').checked;
-  const pasujace = stan.dane.komunikaty.filter(
-    (k) => (testowe || !k.testowy) && (!fraza || `${k.tytul} ${k.tresc} ${k.dla_klienta || ''}`.toLowerCase().includes(fraza))
+  const srodowisko = document.querySelector('input[name="srodowisko"]:checked').value;
+  const wyszukane = stan.dane.komunikaty.filter(
+    (k) => !fraza || `${k.tytul} ${k.tresc} ${k.dla_klienta || ''}`.toLowerCase().includes(fraza)
   );
+  const wedlugSrodowiska = {
+    wszystkie: wyszukane,
+    produkcyjne: wyszukane.filter((k) => !k.testowy),
+    testowe: wyszukane.filter((k) => k.testowy),
+  };
+  for (const [nazwa, lista] of Object.entries(wedlugSrodowiska)) {
+    document.querySelector(`[data-licznik="${nazwa}"]`).textContent = lista.length;
+  }
+  const pasujace = wedlugSrodowiska[srodowisko];
 
   $('komunikaty-sprawdzenie').textContent = formatujDateCzas(stan.dane.ostatnieSprawdzenie);
   const kontener = $('komunikaty-lista');
@@ -324,7 +335,7 @@ $('filtr-szukaj').addEventListener('input', () => {
   stan.limit = NA_STRONE;
   odswiezListe();
 });
-$('filtr-testowe').addEventListener('change', () => {
+$('filtr-srodowisko').addEventListener('change', () => {
   stan.limit = NA_STRONE;
   odswiezListe();
 });

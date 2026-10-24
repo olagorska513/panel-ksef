@@ -14,6 +14,8 @@ dostępna po zalogowaniu.
   (`narzedzia/pobierz-komunikaty.mjs`) i zapisuje je w tabeli `komunikaty`.
   Zapisywane są tylko komunikaty dotyczące KSeF: zawierające w tytule lub treści „KSeF”,
   „Krajowy System e-Faktur” albo „Moduł Certyfikatów i Uprawnień” (funkcja `czyDotyczyKsef`).
+  Komunikat oznaczany jest jako TEST / DEMO, gdy dotyczy środowiska testowego lub przedprodukcyjnego
+  i nie wspomina środowiska produkcyjnego (funkcja `czyTestowy`).
 - Dostępu do danych pilnują reguły Row Level Security w bazie (`supabase/schemat.sql`):
   komunikaty widzą tylko zalogowani użytkownicy z niezablokowanym kontem.
 

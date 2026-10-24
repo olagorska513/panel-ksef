@@ -32,8 +32,13 @@ function czyDotyczyKsef(tytul, tresc) {
   return /\bKSeF\b|System\p{L}* e-Faktur|Modu\p{L}* Certyfikat\p{L}* i Uprawnie\p{L}*/iu.test(`${tytul} ${tresc}`);
 }
 
+// Komunikat jest "testowy", gdy dotyczy środowiska TEST / Demo i nie wspomina produkcji
+// (np. "prace na środowisku przedprodukcyjnym (Demo) i produkcyjnym" dotyczą też produkcji).
 function czyTestowy(tytul, tresc) {
-  return /środowisk\w* (testow|przedprodukcyjn|demo)|\bDemo\b|\bTEST\b/i.test(`${tytul} ${tresc}`);
+  const tekst = `${tytul} ${tresc}`;
+  const test = /środowisk\p{L}* (testow|przedprodukcyjn|demo)|\bDemo\b|\bTEST\b/iu.test(tekst);
+  const produkcja = /(?<!przed)produkcyjn/iu.test(tekst);
+  return test && !produkcja;
 }
 
 async function pobierzKomunikaty() {

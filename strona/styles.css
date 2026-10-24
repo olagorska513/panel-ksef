@@ -127,7 +127,6 @@ h3 { font-size: 1.05rem; margin: 4px 0 10px; }
   font: inherit; padding: 8px 11px; border-radius: 7px; min-width: 260px; flex: 1; max-width: 420px;
   border: 1px solid var(--ramka); background: var(--karta); color: var(--tekst);
 }
-.przelacznik { display: flex; align-items: center; gap: 8px; color: var(--tekst-cichy); font-size: 0.9rem; cursor: pointer; }
 
 .lista { display: flex; flex-direction: column; gap: 14px; }
 .pusto { color: var(--tekst-cichy); padding: 24px; text-align: center; }
@@ -190,5 +189,16 @@ h3 { font-size: 1.05rem; margin: 4px 0 10px; }
 .wskazowka { color: var(--tekst-cichy); font-size: 0.85rem; margin: 0; text-align: center; }
 
 .formularz-konta { display: flex; flex-direction: column; gap: 14px; }
+
+/* Przełącznik środowiska: Wszystkie / Produkcyjne / TEST i DEMO */
+.segmenty { display: inline-flex; border: 1px solid var(--ramka); border-radius: 8px; padding: 3px; margin: 0; background: var(--karta); flex-wrap: wrap; }
+.segmenty label { position: relative; cursor: pointer; }
+.segmenty input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segmenty span { display: block; padding: 5px 12px; border-radius: 6px; font-size: 0.9rem; color: var(--tekst-cichy); white-space: nowrap; }
+.segmenty span b { font-weight: 600; margin-left: 2px; }
+.segmenty input:checked + span { background: var(--akcent); color: var(--akcent-tekst); }
+.segmenty input:focus-visible + span { outline: 2px solid var(--akcent); outline-offset: 2px; }
+.segmenty label:hover input:not(:checked) + span { color: var(--tekst); }
+.ukryte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .tabela tr.zablokowany td { color: var(--tekst-cichy); }
