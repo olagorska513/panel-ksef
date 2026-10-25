@@ -5,6 +5,7 @@ Strona z komunikatami technicznymi Krajowego Systemu e-Faktur
 dostępna po zalogowaniu.
 
 Pełny opis projektu dla zespołu (instrukcja, schemat, utrzymanie): [docs/opis-projektu.md](docs/opis-projektu.md).
+Plany rozwoju: [docs/rekomendacje.md](docs/rekomendacje.md).
 
 ## Jak to działa
 

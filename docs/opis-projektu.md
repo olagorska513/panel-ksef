@@ -2,7 +2,7 @@
 
 25.10.2026 · Ola
 
-Wersja do edycji i komentowania: [Claude Docs](https://claude.ai/artifact/FmQzBbTkJgv7gVasTVmco1)
+Wersja do edycji i komentowania: [Claude Docs](https://claude.ai/artifact/FmQzBbTkJgv7gVasTVmco1) · Plany rozwoju: [rekomendacje do dalszej pracy](rekomendacje.md)
 
 ## Cel i dostęp
 
