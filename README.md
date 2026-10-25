@@ -4,6 +4,8 @@ Strona z komunikatami technicznymi Krajowego Systemu e-Faktur
 ([ksef.podatki.gov.pl/komunikaty-techniczne](https://ksef.podatki.gov.pl/komunikaty-techniczne/)),
 dostępna po zalogowaniu.
 
+Pełny opis projektu dla zespołu (instrukcja, schemat, utrzymanie): [docs/opis-projektu.md](docs/opis-projektu.md).
+
 ## Jak to działa
 
 - **Strona** (`strona/`) jest publikowana na GitHub Pages przez `.github/workflows/strona.yml`.
