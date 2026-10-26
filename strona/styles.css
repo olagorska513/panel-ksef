@@ -236,8 +236,9 @@ a.zdarzenie-tytul:hover { color: var(--akcent); }
   background: var(--ostrzezenie-tlo); color: var(--ostrzezenie); font-weight: 600;
 }
 
-/* Chmurka "Jak czytać?" z ikoną Latarni */
-.latarnia-pomoc { position: relative; flex: none; }
+/* Chmurka "Jak czytać?" z ikoną Latarni – na całą szerokość karty, żeby nie wychodziła poza ekran */
+.dostepnosc-naglowek { position: relative; }
+.latarnia-pomoc { position: static; flex: none; }
 .latarnia-przycisk {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 9px;
   border: 1px solid var(--ramka); border-radius: 999px; background: var(--akcent-jasny); color: var(--akcent);
@@ -248,7 +249,8 @@ a.zdarzenie-tytul:hover { color: var(--akcent); }
 
 .chmurka {
   display: none; position: absolute; right: 0; top: calc(100% + 10px); z-index: 25;
-  width: min(400px, calc(100vw - 32px)); padding: 16px 18px; text-align: left;
+  /* szersza niż karta: sięga w lewo do krawędzi menu bocznego, więc jest niższa */
+  width: min(960px, calc((100vw - var(--szer-menu)) / 2 + 340px)); padding: 16px 18px; text-align: left;
   font-size: 0.86rem; line-height: 1.5; color: var(--tekst);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
 }
@@ -261,8 +263,18 @@ a.zdarzenie-tytul:hover { color: var(--akcent); }
 .chmurka::after { content: ''; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
 .latarnia-pomoc:hover .chmurka,
 .latarnia-pomoc.otwarta .chmurka { display: flex; flex-direction: column; gap: 10px; }
+/* Gdy pod przyciskiem brakuje miejsca, chmurka otwiera się w górę */
+.latarnia-pomoc.w-gore .chmurka { top: auto; bottom: calc(100% + 10px); }
+.latarnia-pomoc.w-gore .chmurka::before { top: auto; bottom: -7px; transform: rotate(225deg); }
+.latarnia-pomoc.w-gore .chmurka::after { top: auto; bottom: -12px; }
+
+@media (max-width: 1100px) {
+  .chmurka { left: 0; width: auto; }
+}
 
 .chmurka-tytul { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--akcent); }
+.chmurka-kolumny { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.chmurka-kolumna { display: flex; flex-direction: column; gap: 10px; }
 .chmurka-krok { display: block; color: var(--tekst-cichy); }
 .chmurka-krok b, .chmurka-offline b { display: block; color: var(--tekst); }
 .chmurka-offline { display: block; padding: 10px 12px; border-radius: 8px; background: var(--ostrzezenie-tlo); color: var(--tekst); }
@@ -271,10 +283,10 @@ a.zdarzenie-tytul:hover { color: var(--akcent); }
 .chmurka-stopka { display: block; font-size: 0.78rem; color: var(--tekst-cichy); }
 
 @media (max-width: 600px) {
-  .dostepnosc-naglowek { flex-wrap: wrap; position: relative; }
+  .dostepnosc-naglowek { flex-wrap: wrap; }
   .dostepnosc-tekst { flex-basis: calc(100% - 28px); }
-  .latarnia-pomoc { position: static; margin-left: 28px; }
-  .chmurka { left: 0; right: 0; width: auto; }
+  .latarnia-pomoc { margin-left: 28px; }
+  .chmurka-kolumny { grid-template-columns: 1fr; gap: 10px; }
   .chmurka::before { right: auto; left: 60px; }
 }
 

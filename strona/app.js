@@ -500,7 +500,23 @@ function odswiezDostepnosc() {
 function ustawChmurke(otwarta) {
   $('latarnia-pomoc').classList.toggle('otwarta', otwarta);
   $('latarnia-przycisk').setAttribute('aria-expanded', String(otwarta));
+  if (otwarta) pokazCalaChmurke();
 }
+// Chmurka otwiera się tam, gdzie się mieści (w dół albo w górę);
+// gdy nie mieści się nigdzie, strona przewija się tak, aby była widoczna w całości
+function pokazCalaChmurke() {
+  const pomoc = $('latarnia-pomoc');
+  pomoc.classList.remove('w-gore');
+  requestAnimationFrame(() => {
+    const chmurka = $('latarnia-chmurka').getBoundingClientRect();
+    if (chmurka.bottom <= window.innerHeight) return;
+    const pasek = document.querySelector('.pasek')?.getBoundingClientRect().bottom || 0;
+    const naglowek = pomoc.parentElement.getBoundingClientRect();
+    if (naglowek.top - 10 - chmurka.height >= pasek) pomoc.classList.add('w-gore');
+    else window.scrollBy({ top: chmurka.bottom - window.innerHeight + 16, behavior: 'smooth' });
+  });
+}
+$('latarnia-pomoc').addEventListener('mouseenter', pokazCalaChmurke);
 $('latarnia-przycisk').addEventListener('click', (e) => {
   e.stopPropagation();
   ustawChmurke(!$('latarnia-pomoc').classList.contains('otwarta'));
