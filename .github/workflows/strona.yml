@@ -21,6 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Dopisuje numer wersji do plików stylów i skryptów, żeby przeglądarka
+      # po każdej publikacji pobrała nowe pliki zamiast zapamiętanych starych
+      - name: Wersja plików
+        run: |
+          wersja="${GITHUB_SHA::7}"
+          sed -i -E "s#(href|src)=\"(styles\.css|app\.js|konfiguracja\.js|vendor/supabase\.js)\"#\1=\"\2?v=${wersja}\"#g" strona/index.html
+          grep -n "?v=" strona/index.html
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
